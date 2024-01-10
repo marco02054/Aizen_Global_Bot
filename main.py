@@ -324,13 +324,13 @@ async def vouches(ctx, user_id: typing.Optional[int] = None):
         username = user.name
 
         embed = discord.Embed(
-            title=f'**Vouch data of {username} | {user_id}**',
+            title=f'**Vouch data of {username} | ||{user_id}||**',
             color=0x5D3FD3,
             description=""
         )
         embed.set_thumbnail(url="https://images-ext-2.discordapp.net/external/Mzwr8rXDTm6pEmzBIr2YGnfG_GNTl1WsBjc0Y5fPaLg/https/i.ebayimg.com/images/g/oIoAAOxy6~BR2j7Q/s-l1200.webp")
         embed.set_author(
-            name=f"{user.display_name} ({user_id})",
+            name=f"{user.display_name}",
             icon_url=user.avatar.url
         )
         embed.add_field(
