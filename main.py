@@ -314,8 +314,9 @@ async def vouches(ctx, user_id: typing.Optional[int] = None):
         vouch_count, total_rating = result[0], result[1]
         average_rating = total_rating / vouch_count if vouch_count > 0 else 0
         average_rating_rounded = round(average_rating, 2)
-
-        stars = '★' * int(average_rating)  # Using the Unicode character for a filled star
+      
+        blue_stars = '\N{BLUE HEART}'
+        stars = 'blue_stars' * int(average_rating)  # Using the Unicode character for a filled star
         star = '☆' * (5 - int(average_rating))  # Unicode character for an empty star
 
         vouches_given_count = vouches_given[0] if vouches_given else 0
