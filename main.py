@@ -11,41 +11,6 @@ from discord.ext import commands
 import pytz
 import uuid
 
-def setup_database():
-    # Connect to the database (replace 'vouch_data.db' with your actual database name)
-    connection = sqlite3.connect('vouch_data.db')
-    cursor = connection.cursor()
-
-    # SQL command to create vouch_giver table
-    create_table_query = '''
-    CREATE TABLE IF NOT EXISTS vouch_giver (
-        user_id INTEGER PRIMARY KEY,
-        vouch_count INTEGER DEFAULT 0
-    );
-    '''
-
-    # Execute the SQL command
-    cursor.execute(create_table_query)
-
-    # SQL command to create vouches table
-    create_vouches_table_query = '''
-    CREATE TABLE IF NOT EXISTS vouches (
-        user_id TEXT PRIMARY KEY,
-        vouch_count INTEGER DEFAULT 0,
-        total_rating INTEGER DEFAULT 0
-    );
-    '''
-
-    # Execute the SQL command
-    cursor.execute(create_vouches_table_query)
-
-    # Commit changes and close the connection
-    connection.commit()
-    connection.close()
-
-# Call the setup_database function during bot initialization
-setup_database()
-
 keep_alive()
 last_vouch_timestamps = {}
 
@@ -56,6 +21,65 @@ intents.typing = False
 intents.presences = False
 
 bot = commands.Bot(command_prefix='!', intents=intents)
+
+def setup_database():
+    # Connect to the database (replace 'vouch_data.db' with your actual database name)
+    connection = sqlite3.connect('vouch_data.db')
+    cursor = connection.cursor()
+
+    # SQL command to create vouches table
+    create_vouches_table_query = '''
+    CREATE TABLE IF NOT EXISTS vouches (
+        user_id TEXT PRIMARY KEY,
+        vouch_count INTEGER DEFAULT 0,
+        total_rating INTEGER DEFAULT 0
+    );
+    '''
+
+    # SQL command to create gbans table
+    create_gbans_table_query = '''
+    CREATE TABLE IF NOT EXISTS gbans (
+        user_id TEXT PRIMARY KEY,
+        reason TEXT
+    );
+    '''
+
+    # SQL command to create user_data table
+    create_user_data_table_query = '''
+    CREATE TABLE IF NOT EXISTS user_data (
+        user_id TEXT PRIMARY KEY,
+        vouches_given INTEGER DEFAULT 0
+    );
+    '''
+
+    # Execute the SQL commands
+    cursor.execute(create_vouches_table_query)
+    cursor.execute(create_gbans_table_query)
+    cursor.execute(create_user_data_table_query)
+
+    # Commit changes and close the connection
+    connection.commit()
+    connection.close()
+
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+connection = sqlite3.connect('vouch_data.db')
+cursor = connection.cursor()
+
+# Create the vouches table if it doesn't exist
+cursor.execute('''CREATE TABLE IF NOT EXISTS vouches (
+                  user_id TEXT PRIMARY KEY,
+                  vouch_count INTEGER DEFAULT 0,
+                  total_rating INTEGER DEFAULT 0
+               )''')
+
+# Create the gbans table if it doesn't exist
+cursor.execute('''CREATE TABLE IF NOT EXISTS gbans (
+                  user_id TEXT PRIMARY KEY,
+                  reason TEXT
+               )''')
+connection.commit()
+connection.close()
 
 
 def is_owner(ctx):
@@ -75,79 +99,12 @@ async def on_ready():
     await bot.change_presence(activity=activity)
 
 @bot.command()
-@commands.cooldown(3, 120, commands.BucketType.user)  # 60 seconds cooldown per user
+@commands.cooldown(3, 60, commands.BucketType.user)  # 60 seconds cooldown per user
 async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, stars: int = None, *, comment: str = None):
     user_id_str = str(ctx.author.id)
     philippine_timezone = pytz.timezone('Asia/Manila')
     current_time_ph = datetime.now(philippine_timezone).strftime('%m/%d/%Y %I:%M %p')
-    vouch_id = str(uuid.uuid4())[:8]  # Get the first 8 characters of the generated UUID
-    connection = sqlite3.connect('vouch_data.db')
-    cursor = connection.cursor()
-    
-    # Fetch the existing vouch count for the user
-    cursor.execute('SELECT vouches_given FROM user_data WHERE user_id = ?', (str(ctx.author.id),))
-    result = cursor.fetchone()
-    
-    if result:
-        vouches_given = result[0]
-        vouches_given += 1  # Increment vouch count for the user
-        cursor.execute('UPDATE user_data SET vouches_given = ? WHERE user_id = ?', (vouches_given, str(ctx.author.id)))
-    else:
-        # If the user has no record yet, insert a new row with vouch count as 1
-        cursor.execute('INSERT INTO user_data (user_id, vouches_given) VALUES (?, ?)', (str(ctx.author.id), 1))
-    
-    connection.commit()
-    connection.close()
-  
-    if user_mention is None:
-        embed = discord.Embed(
-            title="**VOUCH ERROR**",
-            description="Please provide the user's ID or mention to vouch for.",
-            color=discord.Color.red()  # Set the embed color to red
-        )
-        await ctx.send(embed=embed)
-        return
-
-    if isinstance(user_mention, int):
-        user_id = user_mention
-    else:
-        user_id = user_mention.id
-
-    if ctx.author.id == user_id:
-        embed = discord.Embed(
-            title="**VOUCH ERROR**",
-            description="You can't vouch for yourself.",
-            color=discord.Color.red()  # Set the embed color to red
-        )
-        await ctx.send(embed=embed)
-        return
-
-    if stars is None or stars < 1 or stars > 5:
-        embed = discord.Embed(
-            title="**VOUCH ERROR**",
-            description="Please provide a star rating between 1 and 5.",
-            color=discord.Color.red()  # Set the embed color to red
-        )
-        await ctx.send(embed=embed)
-        return
-
-    if comment is None or len(comment.split()) < 5:
-        embed = discord.Embed(
-            title="**VOUCH ERROR**",
-            description="Please provide a comment with at least 5 words when vouching.",
-            color=discord.Color.red()  # Set the embed color to red
-        )
-        await ctx.send(embed=embed)
-        return
-
-     # Notify the user being vouched
-    if isinstance(user_mention, discord.Member):
-        try:
-            await user_mention.send(f"You have been vouched by {ctx.author.display_name} in {ctx.guild.name} with a rating of {stars} stars and the comment: ```{comment}```")
-        except discord.Forbidden:
-            await ctx.send("Failed to send a direct message to the user being vouched. They might have DMs disabled or blocked the bot.")
-        except discord.HTTPException as e:
-            print(f"Error sending DM: {e}")  # Handle the error (log/print/display) as required
+    vouch_id = str(uuid.uuid4())[:11]  # Get the first 8 characters of the generated UUID
 
     if user_id_str == str(ctx.author.id):
         # Bot owner is immune to the cooldown
@@ -165,7 +122,26 @@ async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, sta
             await ctx.send(f"You are on cooldown. Try again in **{remaining_time:.2f}** seconds.")
             return
 
-    # Your existing vouch command logic...
+    if user_mention is None:
+        await ctx.send("Please provide the user's ID or mention to vouch for.")
+        return
+
+    if isinstance(user_mention, int):
+        user_id = user_mention
+    else:
+        user_id = user_mention.id
+
+    if ctx.author.id == user_id:
+        await ctx.send("You can't vouch for yourself.")
+        return
+
+    if stars is None:
+        await ctx.send("Please provide a star rating between 1 and 5.")
+        return
+
+    if comment is None or len(comment.split()) < 5:
+        await ctx.send("***Please provide a comment with at least 5 words when vouching.***")
+        return
 
     connection = sqlite3.connect('vouch_data.db')
     cursor = connection.cursor()
@@ -186,28 +162,32 @@ async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, sta
         username = f"User ID: {user_id}"
 
     try:
-        # Fetch the existing vouch count and total rating of the receiver
-        cursor.execute('SELECT vouch_count, total_rating FROM vouches WHERE user_id = ?', (str(user_id),))
-        result = cursor.fetchone()
+        cursor.execute('SELECT vouch_count FROM vouch_giver WHERE user_id = ?', (str(ctx.author.id),))
+        vouches_given = cursor.fetchone()
 
-        if result:
-            vouch_count, total_rating = result[0], result[1]
+        if vouches_given:
+            vouch_count = vouches_given[0] + 1
+            cursor.execute('UPDATE vouch_giver SET vouch_count = ? WHERE user_id = ?', (vouch_count, str(ctx.author.id)))
+        else:
+            cursor.execute('INSERT INTO vouch_giver (user_id, vouch_count) VALUES (?, ?)', (str(ctx.author.id), 1))
 
-            # Increment vouch count for the receiver
-            receiver_vouch_count = vouch_count + 1
-
-            # Calculate the new total rating based on the existing total rating and the new vouch stars
-            new_total_rating = total_rating + stars  # stars is the star rating given in the vouch command
-
-            # Update the vouches table with the new vouch count and total rating
-            cursor.execute('UPDATE vouches SET vouch_count = ?, total_rating = ? WHERE user_id = ?', 
-                            (receiver_vouch_count, new_total_rating, str(user_id)))
-            connection.commit()
-
-            # Other parts of the code (creating embed, sending messages, etc.)
-        # ... (remaining code)
+        connection.commit()
     except Exception as e:
-        print(f"Error updating receiver vouch count and total rating: {e}")
+        print(f"Error updating vouch count: {e}")
+
+    try:
+        cursor.execute('SELECT vouch_count FROM vouches WHERE user_id = ?', (str(user_id),))
+        receiver_vouches = cursor.fetchone()
+
+        if receiver_vouches:
+            receiver_vouch_count = receiver_vouches[0] + 1
+            cursor.execute('UPDATE vouches SET vouch_count = ? WHERE user_id = ?', (receiver_vouch_count, str(user_id)))
+        else:
+            cursor.execute('INSERT INTO vouches (user_id, vouch_count) VALUES (?, ?)', (str(user_id), 1))
+
+        connection.commit()
+    except Exception as e:
+        print(f"Error updating receiver vouch count: {e}")
 
     server_icon_url = ctx.guild.icon.url  # Fetch the server's icon URL
 
@@ -231,15 +211,17 @@ async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, sta
     )
 
     message_content = f""
-    await ctx.reply(content=message_content, embed=embed)
-    await ctx.message.add_reaction('✅')
+    message = await ctx.reply(content=message_content, embed=embed)
+    
+    # Add ✅ reaction to the message
+    await message.add_reaction("✅")
 
     # Log the vouch in the vouch log channel
     vouch_log_channel_id = 1170990208406269973  # Replace with the actual channel ID
     vouch_log_channel = bot.get_channel(vouch_log_channel_id)
     if vouch_log_channel:
         log_embed = discord.Embed(
-          title=f"VOUCH VALID for {user.name} in {ctx.guild.name}",
+            title=f"VOUCH VALID for {user.name} in {ctx.guild.name}",
             color=0x5D3FD3,
         )
         log_embed.add_field(name="", value=f"***User {ctx.author.mention} has vouched <@{user_id}> with a rating and a comment***", inline=False)
@@ -249,6 +231,21 @@ async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, sta
         log_embed.set_thumbnail(url=server_icon_url)  # Set the server's icon as the thumbnail
         log_embed.add_field(name="Vouch ID:", value=f"```\n{vouch_id}\n```", inline=False)  # Include vouch ID in the log embed
         await vouch_log_channel.send(embed=log_embed)
+
+# Error handling for cooldown
+@vouch.error
+async def vouch_error(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        remaining_time = error.retry_after
+        embed = discord.Embed(
+            title="Cooldown",
+            description=f"Please wait for the cooldown to finish before using this command again.",
+            color=discord.Color.red()
+        )
+        embed.add_field(name="Remaining Time", value=f"```{remaining_time:.2f} seconds```", inline=False)
+        embed.set_footer(text=f"Vouched by {ctx.author.display_name} on {current_time_ph}",)
+        await ctx.send(embed=embed)
+
       
 # Error handling for cooldown
 @vouch.error
@@ -294,37 +291,37 @@ async def vouches(ctx, user_id: typing.Optional[int] = None):
             url="https://images-ext-2.discordapp.net/external/Mzwr8rXDTm6pEmzBIr2YGnfG_GNTl1WsBjc0Y5fPaLg/https/i.ebayimg.com/images/g/oIoAAOxy6~BR2j7Q/s-l1200.webp"
         )
 
-        await ctx.reply(embed=embed)  # Send the reply as a direct reply to the user's message
+        await ctx.send(embed=embed)
         connection.close()
         return
 
     cursor.execute('SELECT vouch_count, total_rating FROM vouches WHERE user_id = ?', (str(user_id),))
     result = cursor.fetchone()
 
-    cursor.execute('SELECT vouches_given FROM user_data WHERE user_id = ?', (str(user_id),))
+    cursor.execute('SELECT vouch_count FROM vouch_giver WHERE user_id = ?', (str(user_id),))
     vouches_given = cursor.fetchone()
 
     if result:
         vouch_count, total_rating = result[0], result[1]
         average_rating = total_rating / vouch_count if vouch_count > 0 else 0
         average_rating_rounded = round(average_rating, 2)
-      
-        stars = '★' * int(average_rating) 
-        star = '☆' * (5 - int(average_rating))  
+
+        stars = '★' * int(average_rating)  # Using the Unicode character for a filled star
+        star = '☆' * (5 - int(average_rating))  # Unicode character for an empty star
 
         vouches_given_count = vouches_given[0] if vouches_given else 0
-        
+
         user = await bot.fetch_user(user_id)
         username = user.name
 
         embed = discord.Embed(
-            title=f'**Vouch data of {username} | ||{user_id}||**',
+            title=f'**Vouch data of {username} | {user_id}**',
             color=0x5D3FD3,
             description=""
         )
         embed.set_thumbnail(url="https://images-ext-2.discordapp.net/external/Mzwr8rXDTm6pEmzBIr2YGnfG_GNTl1WsBjc0Y5fPaLg/https/i.ebayimg.com/images/g/oIoAAOxy6~BR2j7Q/s-l1200.webp")
         embed.set_author(
-            name=f"{user.display_name}",
+            name=f"{user.display_name} ({user_id})",
             icon_url=user.avatar.url
         )
         embed.add_field(
@@ -352,11 +349,13 @@ async def vouches(ctx, user_id: typing.Optional[int] = None):
             text=f"✧ Requested by {ctx.author.display_name} ({ctx.author.id}) on {current_time_ph}"
         )
 
-        await ctx.reply(embed=embed)  # Send the reply as a direct reply to the user's message
+        await ctx.send(embed=embed)
     else:
-        await ctx.reply(f"User with ID {user_id} has no vouches.")  # Send the reply as a direct reply to the user's message
+        await ctx.send(f"User with ID {user_id} has no vouches.")
 
     connection.close()
+
+
 
 @bot.command()
 @commands.check(is_owner)
@@ -611,19 +610,36 @@ async def leaderboard(ctx):
         connection.close()
 
 @bot.command()
-@commands.is_owner()
-async def setvouchgiven(ctx, user_id: int, vouches_given: int):
-    # Set vouches given for the specified user in the database
-    connection = sqlite3.connect('vouch_data.db')
-    cursor = connection.cursor()
+async def setvg  (ctx, user_id: typing.Optional[int] = None, vouches_given: int = 0):
+    if user_id is None:
+        await ctx.send("Please provide the user ID.")
+        return
 
-    # Update vouches given for the specified user
-    cursor.execute('UPDATE user_data SET vouches_given = ? WHERE user_id = ?', (vouches_given, str(user_id)))
-    connection.commit()
+    if vouches_given < 0:
+        await ctx.send("Vouches given count cannot be negative.")
+        return
 
-    await ctx.send(f"Vouches given for user with ID {user_id} set to {vouches_given}.")
+    try:
+        connection = sqlite3.connect('vouch_data.db')
+        cursor = connection.cursor()
 
-    connection.close()
+        cursor.execute('SELECT vouch_count FROM vouch_giver WHERE user_id = ?', (str(user_id),))
+        current_vouches_given = cursor.fetchone()
+
+        if current_vouches_given:
+            cursor.execute('UPDATE vouch_giver SET vouch_count = ? WHERE user_id = ?', (vouches_given, str(user_id)))
+        else:
+            cursor.execute('INSERT INTO vouch_giver (user_id, vouch_count) VALUES (?, ?)', (str(user_id), vouches_given))
+
+        connection.commit()
+        await ctx.send(f"Vouches given count for user with ID {user_id} updated to {vouches_given}.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        await ctx.send("An error occurred while updating vouches given count.")
+
+    finally:
+        connection.close()
+
 
 @bot.command()
 @commands.is_owner()
