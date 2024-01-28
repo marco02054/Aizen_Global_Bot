@@ -95,7 +95,7 @@ async def on_ready():
     member_count = sum(guild.member_count for guild in bot.guilds)
 
     # Set a rich presence for the bot
-    activity = Game(name=f'In {server_count} servers | {member_count} members', type=ActivityType.watching)
+    activity = Game(name=f'In {server_count} servers with {member_count} members', type=ActivityType.watching)
     await bot.change_presence(activity=activity)
 
 @bot.command()
