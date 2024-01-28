@@ -135,7 +135,7 @@ async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, sta
         await ctx.send("You can't vouch for yourself.")
         return
 
-    if stars is None:
+    if stars is None or stars < 1 or stars > 5:
         await ctx.send("Please provide a star rating between 1 and 5.")
         return
 
