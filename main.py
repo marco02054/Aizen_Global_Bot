@@ -12,24 +12,36 @@ import pytz
 import uuid
 
 def setup_database():
-  # Connect to the database (replace 'your_database_name.db' with your actual database name)
-  connection = sqlite3.connect('vouch_data.db')
-  cursor = connection.cursor()
+    # Connect to the database (replace 'vouch_data.db' with your actual database name)
+    connection = sqlite3.connect('vouch_data.db')
+    cursor = connection.cursor()
 
-  # SQL command to create vouch_giver table
-  create_table_query = '''
-  CREATE TABLE IF NOT EXISTS vouch_giver (
-      user_id INTEGER PRIMARY KEY,
-      vouch_count INTEGER DEFAULT 0
-  );
-  '''
+    # SQL command to create vouch_giver table
+    create_table_query = '''
+    CREATE TABLE IF NOT EXISTS vouch_giver (
+        user_id INTEGER PRIMARY KEY,
+        vouch_count INTEGER DEFAULT 0
+    );
+    '''
 
-  # Execute the SQL command
-  cursor.execute(create_table_query)
+    # Execute the SQL command
+    cursor.execute(create_table_query)
 
-  # Commit changes and close the connection
-  connection.commit()
-  connection.close()
+    # SQL command to create vouches table
+    create_vouches_table_query = '''
+    CREATE TABLE IF NOT EXISTS vouches (
+        user_id TEXT PRIMARY KEY,
+        vouch_count INTEGER DEFAULT 0,
+        total_rating INTEGER DEFAULT 0
+    );
+    '''
+
+    # Execute the SQL command
+    cursor.execute(create_vouches_table_query)
+
+    # Commit changes and close the connection
+    connection.commit()
+    connection.close()
 
 # Call the setup_database function during bot initialization
 setup_database()
@@ -44,24 +56,6 @@ intents.typing = False
 intents.presences = False
 
 bot = commands.Bot(command_prefix='!', intents=intents)
-
-connection = sqlite3.connect('vouch_data.db')
-cursor = connection.cursor()
-
-# Create the vouches table if it doesn't exist
-cursor.execute('''CREATE TABLE IF NOT EXISTS vouches (
-                  user_id TEXT PRIMARY KEY,
-                  vouch_count INTEGER DEFAULT 0,
-                  total_rating INTEGER DEFAULT 0
-               )''')
-
-# Create the gbans table if it doesn't exist
-cursor.execute('''CREATE TABLE IF NOT EXISTS gbans (
-                  user_id TEXT PRIMARY KEY,
-                  reason TEXT
-               )''')
-connection.commit()
-connection.close()
 
 
 def is_owner(ctx):
