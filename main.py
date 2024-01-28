@@ -278,6 +278,12 @@ async def vouches(ctx, user_id: typing.Optional[int] = None):
     philippine_timezone = pytz.timezone('Asia/Manila')
     current_time_ph = datetime.now(philippine_timezone).strftime('%m/%d/%Y %I:%M %p')
 
+    try:
+        user = await bot.fetch_user(user_id)
+        username = user.name
+    except discord.NotFound:
+        username = f"User ID: {user_id}"
+
     if gban_reason:
         banned_user = await bot.fetch_user(user_id)
         embed = discord.Embed(
@@ -303,16 +309,15 @@ async def vouches(ctx, user_id: typing.Optional[int] = None):
 
     if result:
         vouch_count, total_rating = result[0], result[1]
+        
+        # Ensure vouch_count is greater than 0 to avoid division by zero
         average_rating = total_rating / vouch_count if vouch_count > 0 else 0
         average_rating_rounded = round(average_rating, 2)
 
-        stars = '★' * int(average_rating)  # Using the Unicode character for a filled star
-        star = '☆' * (5 - int(average_rating))  # Unicode character for an empty star
+        stars = '★' * int(5 * average_rating)  # Adjusted to represent the average rating on a 5-star scale
+        star = '☆' * (5 - int(5 * average_rating))  # Adjusted for a 5-star scale
 
         vouches_given_count = vouches_given[0] if vouches_given else 0
-
-        user = await bot.fetch_user(user_id)
-        username = user.name
 
         embed = discord.Embed(
             title=f'**Vouch data of {username} | {user_id}**',
