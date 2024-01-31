@@ -103,7 +103,7 @@ async def on_ready():
 async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, stars: int = None, *, comment: str = None):
     user_id_str = str(ctx.author.id)
     philippine_timezone = pytz.timezone('Asia/Manila')
-    current_time_ph = datetime.now(philippine_timezone).strftime('%m/%d/%Y %I:%M %p')
+    current_time_ph = datetime.now(philippine_timezone).strftime('%m/%d/%Y %i:%M%p')
     vouch_id = str(uuid.uuid4())[:11]  # Get the first 8 characters of the generated UUID
 
     if user_id_str == str(ctx.author.id):
@@ -135,13 +135,15 @@ async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, sta
         await ctx.send("You can't vouch for yourself.")
         return
 
-    if stars is None or stars < 1 or stars > 5:
+    if stars is None:
         await ctx.send("Please provide a star rating between 1 and 5.")
         return
 
     if comment is None or len(comment.split()) < 5:
         await ctx.send("***Please provide a comment with at least 5 words when vouching.***")
         return
+
+    # Your existing vouch command logic...
 
     connection = sqlite3.connect('vouch_data.db')
     cursor = connection.cursor()
@@ -181,9 +183,9 @@ async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, sta
 
         if receiver_vouches:
             receiver_vouch_count = receiver_vouches[0] + 1
-            cursor.execute('UPDATE vouches SET vouch_count = ? WHERE user_id = ?', (receiver_vouch_count, str(user_id)))
+            cursor.execute('UPDATE vouches SET vouch_count = ?, total_rating = total_rating + ? WHERE user_id = ?', (receiver_vouch_count, stars, str(user_id)))
         else:
-            cursor.execute('INSERT INTO vouches (user_id, vouch_count) VALUES (?, ?)', (str(user_id), 1))
+            cursor.execute('INSERT INTO vouches (user_id, vouch_count, total_rating) VALUES (?, ?, ?)', (str(user_id), 1, stars))
 
         connection.commit()
     except Exception as e:
@@ -211,17 +213,14 @@ async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, sta
     )
 
     message_content = f""
-    message = await ctx.reply(content=message_content, embed=embed)
-    
-    # Add ✅ reaction to the message
-    await message.add_reaction("✅")
+    await ctx.reply(content=message_content, embed=embed)
 
     # Log the vouch in the vouch log channel
     vouch_log_channel_id = 1170990208406269973  # Replace with the actual channel ID
     vouch_log_channel = bot.get_channel(vouch_log_channel_id)
     if vouch_log_channel:
         log_embed = discord.Embed(
-            title=f"VOUCH VALID for {user.name} in {ctx.guild.name}",
+          title=f"VOUCH VALID for {user.name} in {ctx.guild.name}",
             color=0x5D3FD3,
         )
         log_embed.add_field(name="", value=f"***User {ctx.author.mention} has vouched <@{user_id}> with a rating and a comment***", inline=False)
@@ -244,23 +243,6 @@ async def vouch_error(ctx, error):
         )
         embed.add_field(name="Remaining Time", value=f"```{remaining_time:.2f} seconds```", inline=False)
         embed.set_footer(text=f"Vouched by {ctx.author.display_name} on {current_time_ph}",)
-        await ctx.send(embed=embed)
-
-      
-# Error handling for cooldown
-@vouch.error
-async def vouch_error(ctx, error):
-    philippine_timezone = pytz.timezone('Asia/Manila')
-    current_time_ph = datetime.now(philippine_timezone).strftime('%m/%d/%Y %I:%M %p')
-    if isinstance(error, commands.CommandOnCooldown):
-        remaining_time = error.retry_after
-        embed = discord.Embed(
-            title="**COOLDOWN**",
-            description=f"Please wait for the cooldown to finish before using this command again.",
-            color=discord.Color.red()
-        )
-        embed.add_field(name="**Remaining Time**", value=f"```{remaining_time:.2f} seconds```", inline=False)
-        embed.set_footer(text=f"Requested by {ctx.author.display_name} on {current_time_ph}",)
         await ctx.send(embed=embed)
 
 @bot.command()
@@ -308,17 +290,14 @@ async def vouches(ctx, user_id: typing.Optional[int] = None):
     vouches_given = cursor.fetchone()
 
     if result:
-        vouch_count, total_rating = result[0], result[1]
+      vouch_count, total_rating = result[0], result[1]
+      vouches_given_count = vouches_given[0] if vouches_given else 0
+
+      if vouch_count > 0:
+        average_rating = total_rating / vouch_count
+        stars = '★' * int(round(average_rating))
+        star = '☆' * (5 - int(round(average_rating)))
         
-        # Ensure vouch_count is greater than 0 to avoid division by zero
-        average_rating = total_rating / vouch_count if vouch_count > 0 else 0
-        average_rating_rounded = round(average_rating, 2)
-
-        stars = '★' * int(5 * average_rating)  # Adjusted to represent the average rating on a 5-star scale
-        star = '☆' * (5 - int(5 * average_rating))  # Adjusted for a 5-star scale
-
-        vouches_given_count = vouches_given[0] if vouches_given else 0
-
         embed = discord.Embed(
             title=f'**Vouch data of {username} | {user_id}**',
             color=0x5D3FD3,
@@ -341,7 +320,7 @@ async def vouches(ctx, user_id: typing.Optional[int] = None):
         )
         embed.add_field(
             name="Rating:",
-            value=f"```{stars}{star} {average_rating_rounded:.2f}```",
+            value=f"```{stars}{star} {average_rating:.2f}```",
             inline=True
         )
         embed.add_field(
@@ -357,9 +336,8 @@ async def vouches(ctx, user_id: typing.Optional[int] = None):
         await ctx.send(embed=embed)
     else:
         await ctx.send(f"User with ID {user_id} has no vouches.")
-
-    connection.close()
-
+ 
+        connection.close()
 
 
 @bot.command()
@@ -708,4 +686,4 @@ async def setvouch(ctx, user_id: int, vouch_count: int, total_rating: float):
 
     connection.close()
 
-bot.run(os.env iron['BOT_ TOKEN'])
+bot.run(os.environ['BOT_TOKEN'])
