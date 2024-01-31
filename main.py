@@ -103,7 +103,7 @@ async def on_ready():
 async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, stars: int = None, *, comment: str = None):
     user_id_str = str(ctx.author.id)
     philippine_timezone = pytz.timezone('Asia/Manila')
-    current_time_ph = datetime.now(philippine_timezone).strftime('%m/%d/%Y %i:%M%p')
+    current_time_ph = datetime.now(philippine_timezone).strftime('%m/%d/%Y %I:%M %p')
     vouch_id = str(uuid.uuid4())[:11]  # Get the first 8 characters of the generated UUID
 
     if user_id_str == str(ctx.author.id):
@@ -142,8 +142,6 @@ async def vouch(ctx, user_mention: typing.Union[discord.Member, int] = None, sta
     if comment is None or len(comment.split()) < 5:
         await ctx.send("***Please provide a comment with at least 5 words when vouching.***")
         return
-
-    # Your existing vouch command logic...
 
     connection = sqlite3.connect('vouch_data.db')
     cursor = connection.cursor()
