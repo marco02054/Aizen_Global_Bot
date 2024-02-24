@@ -81,7 +81,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS gbans (
 connection.commit()
 connection.close()
 
-
+BOT_TOKEN = 'MTE2ODAzNTEzNTk5NjgzMzc5Mg.GM1IC-.fw-3k3nOixpZjRxm-WFMwdOXn9R76s6w_6UVEE'
 def is_owner(ctx):
   return ctx.author.id == 389721638939262976  # Replace YOUR_BOT_OWNER_ID with your Discord user ID
 
@@ -684,4 +684,4 @@ async def setvouch(ctx, user_id: int, vouch_count: int, total_rating: float):
 
     connection.close()
 
-bot.run(os.environ['BOT_TOKEN'])
+bot.run(BOT_TOKEN)
