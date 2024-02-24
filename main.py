@@ -684,4 +684,4 @@ async def setvouch(ctx, user_id: int, vouch_count: int, total_rating: float):
 
     connection.close()
 
-bot.run(os.environ['BOT_TOKEN'])
+bot.run(os.environ.get('MTE2ODAzNTEzNTk5NjgzMzc5Mg.GM1IC-.fw-3k3nOixpZjRxm-WFMwdOXn9R76s6w_6UVEE'))
