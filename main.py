@@ -81,7 +81,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS gbans (
 connection.commit()
 connection.close()
 
-BOT_TOKEN = 'MTE2ODAzNTEzNTk5NjgzMzc5Mg.GM1IC-.fw-3k3nOixpZjRxm-WFMwdOXn9R76s6w_6UVEE'
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
 def is_owner(ctx):
   return ctx.author.id == 389721638939262976  # Replace YOUR_BOT_OWNER_ID with your Discord user ID
 
